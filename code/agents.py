@@ -1,6 +1,8 @@
 import train
 import torch
 
+from environment import Environment
+
 # Build the early-bird agent as described in the paper.
 def earlyBirdAgent(model, criterion, optimizer, trainloader, testloader, earlyBird, epochs, device):
     for epoch in range(epochs):
@@ -22,3 +24,8 @@ def earlyBirdAgent(model, criterion, optimizer, trainloader, testloader, earlyBi
 
         # Test Model
         train.test(model, testloader, device)
+
+def earlyBirdRLAgent(model, criterion, optimizer, trainloader, testloader, earlyBird, epochs, device):
+    # Initialize environment
+    env = Environment(model, device, trainloader, optimizer, criterion, testloader, earlyBird.ratio, 0.5, earlyBird, 0.9)
+    env.init_training()
