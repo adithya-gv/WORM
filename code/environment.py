@@ -27,7 +27,7 @@ class Environment():
         self.Q_table = {}
     
     def sigmoid(self, x):
-        return 10 / (1 + np.exp(-x))
+        return 1 / (1 + np.exp(-x))
     
     # compute reward on the action of pruning and continuing training
     def compute_reward_proceed(self, model, epoch):
@@ -42,9 +42,9 @@ class Environment():
         early_bird_converged = self.earlyBird.early_bird_emerge(model)
 
         penalty = 0
-        # If it decided to  converge, apply moderate penalty.
+        # If it decided to converge, apply major penalty.
         if early_bird_converged:
-            penalty = 10
+            penalty = 100
 
         # Train model for one epoch
         train.train_one_epoch(new_model, self.device, self.trainloader, self.optimizer, self.criterion, epoch)
@@ -53,34 +53,35 @@ class Environment():
         acc = train.test(new_model, self.testloader, self.device)
 
         # Compute Reward
-        reward = acc * self.sigmoid(1 / mask_distance) - (epoch / 10) - penalty
+        reward = acc * 10 * self.sigmoid(1 / mask_distance) - (epoch / 10) - penalty
 
         return reward
 
     # compute reward on the action of pruning and stopping training
     def compute_reward_terminate(self, model, epoch):
-        # Generate mask and do not apply it to the model
+        # Apply mask to model
         mask = self.earlyBird.pruning(model, self.ratio)
+        new_model = self.earlyBird.apply_mask(model, mask)
 
         # Compute mask distance
         mask_distance = self.earlyBird.compute_mask_distance(mask)
 
-        # Determine if EarlyBird traditional approach would have converged
-        early_bird_converged = self.earlyBird.early_bird_emerge(model)
-
-        penalty = 0
-        # If it decided to not converge, apply major penalty.
-        if not early_bird_converged:
-            penalty = 100
-
         # Train model for one epoch
-        train.train_one_epoch(model, self.device, self.trainloader, self.optimizer, self.criterion, epoch)
+        train.train_one_epoch(new_model, self.device, self.trainloader, self.optimizer, self.criterion, epoch)
+
+        # Test old model to retrieve accuracy
+        target_acc = train.test(model, self.testloader, self.device)
 
         # Test model to retrieve accuracy
-        acc = train.test(model, self.testloader, self.device)
+        acc = train.test(new_model, self.testloader, self.device)
+
+        # if acc is less than target accuracy within range, apply major penalty
+        penalty = 0
+        if acc < target_acc - 2:
+            penalty = 100
 
         # Compute Reward
-        reward = acc * self.sigmoid(1 / mask_distance) - (epoch / 10) - penalty
+        reward = acc * 10 * self.sigmoid(1 / mask_distance) - (epoch / 10) - penalty
         
         return reward
 
