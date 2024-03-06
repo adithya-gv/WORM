@@ -100,7 +100,7 @@ class Environment():
 
         # Update Q-table
         temporal_difference = max(self.Q_table[(epoch + 1, a)] for a in self.ACTION_TABLE) - self.Q_table[(epoch, action)]
-        self.Q_table[(epoch, action)] = self.Q_table[(epoch, action)] + self.alpha(reward + self.gamma * temporal_difference)
+        self.Q_table[(epoch, action)] = (1 - self.alpha) * self.Q_table[(epoch, action)] + self.alpha * (reward + self.gamma * temporal_difference)
 
         return action
     
