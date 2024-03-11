@@ -53,7 +53,7 @@ class Environment():
         acc = train.test(new_model, self.testloader, self.device)
 
         # Compute Reward
-        reward = acc * 10 * self.sigmoid(1 / mask_distance) - (epoch / 10) - penalty
+        reward = acc * 10 * self.sigmoid(1 / mask_distance) - ((epoch - 3) / 10) - penalty
 
         return reward
 
