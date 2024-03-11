@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from earlyBird import EarlyBird
-from agents import earlyBirdAgent
+from agents import earlyBirdAgent, earlyBirdRLAgent
 
 class ResNet18(nn.Module):
     def __init__(self):
@@ -90,4 +90,5 @@ optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
 # Init EarlyBird package, with threshold parameter of 0.1
 earlyBird = EarlyBird(0.5, 5, 0.1)
 
-earlyBirdAgent(model, criterion, optimizer, trainloader, testloader, earlyBird, 100, device)
+env = earlyBirdRLAgent(model, criterion, optimizer, trainloader, testloader, earlyBird, 10, device)
+print(env.inference(0))

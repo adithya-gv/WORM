@@ -33,10 +33,11 @@ class Environment():
     def compute_reward_proceed(self, model, epoch):
         # Apply Mask to Model
         mask = self.earlyBird.pruning(model, self.ratio)
-        new_model = self.earlyBird.apply_mask(model, mask)
+        new_model = self.earlyBird.apply_mask(model, mask, self.device)
 
         # Compute Mask Distance
         mask_distance = self.earlyBird.compute_mask_distance(mask)
+        print("Distance: " + str(mask_distance))
 
         # Determine if EarlyBird traditional approach would have converged
         early_bird_converged = self.earlyBird.early_bird_emerge(model)
@@ -44,10 +45,10 @@ class Environment():
         penalty = 0
         # If it decided to converge, apply major penalty.
         if early_bird_converged:
-            penalty = 100
+            penalty = 1000 * (epoch + 1)
 
         # Train model for one epoch
-        train.train_one_epoch(new_model, self.device, self.trainloader, self.optimizer, self.criterion, epoch)
+        train.train_one_epoch(new_model, self.device, self.trainloader, self.optimizer, self.criterion, epoch + 1)
 
         # Test model to retrieve accuracy
         acc = train.test(new_model, self.testloader, self.device)
@@ -61,24 +62,29 @@ class Environment():
     def compute_reward_terminate(self, model, epoch):
         # Apply mask to model
         mask = self.earlyBird.pruning(model, self.ratio)
-        new_model = self.earlyBird.apply_mask(model, mask)
+        new_model = self.earlyBird.apply_mask(model, mask, self.device)
 
         # Compute mask distance
         mask_distance = self.earlyBird.compute_mask_distance(mask)
+        print("Distance: " + str(mask_distance))
 
-        # Train model for one epoch
-        train.train_one_epoch(new_model, self.device, self.trainloader, self.optimizer, self.criterion, epoch)
-
+        # Train model for five epochs
+        print("Retraining Pruned Model...")
+        for i in range(5):
+            train.train_one_epoch(new_model, self.device, self.trainloader, self.optimizer, self.criterion, epoch + i + 1)
+        
         # Test old model to retrieve accuracy
+        print("Testing Old Model...")
         target_acc = train.test(model, self.testloader, self.device)
 
         # Test model to retrieve accuracy
+        print("Testing New Model...")
         acc = train.test(new_model, self.testloader, self.device)
 
         # if acc is less than target accuracy within range, apply major penalty
         penalty = 0
-        if acc < target_acc - 2:
-            penalty = 100
+        if (acc < target_acc) - 5 or (acc < 80):
+            penalty = max(1000 * (10 - epoch), 1000)
 
         # Compute Reward
         reward = acc * 10 * self.sigmoid(1 / mask_distance) - (epoch / 10) - penalty
@@ -87,7 +93,9 @@ class Environment():
 
     def take_action(self, model, epoch):
         # Randomly select an action
-        action = np.random.choice(list(self.ACTION_TABLE), p = [max(1 - (5 * epoch / 10), 0.3), max(0 + (5 * epoch / 10), 0.7)])
+        prob = max(1 - (epoch / 12), 0.3)
+        action = np.random.choice(list(self.ACTION_TABLE), p = [prob, 1 - prob])
+        print("Action Taken: " + str(action))
 
         reward = 0
         # Prune
@@ -99,14 +107,15 @@ class Environment():
             reward = self.compute_reward_terminate(model, epoch)
 
         # Update Q-table
+        print("Reward: " + str(reward))
         temporal_difference = max(self.Q_table[(epoch + 1, a)] for a in self.ACTION_TABLE) - self.Q_table[(epoch, action)]
         self.Q_table[(epoch, action)] = (1 - self.alpha) * self.Q_table[(epoch, action)] + self.alpha * (reward + self.gamma * temporal_difference)
 
         return action
     
     def init_training(self):
-        # Populate Q-Table for 100 epochs on both actions, with a value of -1
-        for epoch in range(100):
+        # Populate Q-Table for 12 epochs on both actions, with a value of -1
+        for epoch in range(10):
             for action in self.ACTION_TABLE:
                 self.Q_table[(epoch, action)] = -1
     
@@ -117,7 +126,7 @@ class Environment():
         # Reset optimizer parameters
         self.optimizer.params = model.parameters()
 
-        return 0
+        self.earlyBird.reset_earlyBird()
     
 
     def inference(self, epoch):

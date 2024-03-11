@@ -27,5 +27,16 @@ def earlyBirdAgent(model, criterion, optimizer, trainloader, testloader, earlyBi
 
 def earlyBirdRLAgent(model, criterion, optimizer, trainloader, testloader, earlyBird, epochs, device):
     # Initialize environment
+    print("Agent Training Beginning!")
     env = Environment(model, device, trainloader, optimizer, criterion, testloader, earlyBird.ratio, 0.5, earlyBird, 0.9)
     env.init_training()
+    for n in range(5):
+        for e in range(epochs):
+            train.train_one_epoch(model, device, trainloader, optimizer, criterion, e)
+            train.test(model, testloader, device)
+            choice = env.take_action(model, e)
+            if choice == 1:
+                env.restart_training(model)
+                break
+    
+    return env
