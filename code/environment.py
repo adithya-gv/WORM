@@ -29,6 +29,9 @@ class Environment():
     def sigmoid(self, x):
         return 1 / (1 + np.exp(-x))
     
+    def mapAccuracy(self, acc):
+        return int(round(acc * 100, -1))
+    
     # compute reward on the action of pruning and continuing training
     def compute_reward_proceed(self, model, epoch):
         # Apply Mask to Model
@@ -56,7 +59,7 @@ class Environment():
         # Compute Reward
         reward = acc * 10 * self.sigmoid(1 / mask_distance) - ((epoch - 3) / 10) - penalty
 
-        return reward
+        return reward, self.mapAccuracy(acc)
 
     # compute reward on the action of pruning and stopping training
     def compute_reward_terminate(self, model, epoch):
@@ -89,7 +92,7 @@ class Environment():
         # Compute Reward
         reward = acc * 10 * self.sigmoid(1 / mask_distance) - (epoch / 10) - penalty
         
-        return reward
+        return reward, self.mapAccuracy(acc)
 
     def take_action(self, model, epoch):
         # Randomly select an action
@@ -98,26 +101,28 @@ class Environment():
         print("Action Taken: " + str(action))
 
         reward = 0
+        acc = 0
         # Prune
         if action == 0:
-            reward = self.compute_reward_proceed(model, epoch)
+            reward, acc = self.compute_reward_proceed(model, epoch)
         
         # No Prune
         else:
-            reward = self.compute_reward_terminate(model, epoch)
+            reward, acc = self.compute_reward_terminate(model, epoch)
 
         # Update Q-table
         print("Reward: " + str(reward))
-        temporal_difference = max(self.Q_table[(epoch + 1, a)] for a in self.ACTION_TABLE) - self.Q_table[(epoch, action)]
-        self.Q_table[(epoch, action)] = (1 - self.alpha) * self.Q_table[(epoch, action)] + self.alpha * (reward + self.gamma * temporal_difference)
+        temporal_difference = max(self.Q_table[(epoch + 1, acc, a)] for a in self.ACTION_TABLE) - self.Q_table[(epoch, action)]
+        self.Q_table[(epoch, acc, action)] = (1 - self.alpha) * self.Q_table[(epoch, acc, action)] + self.alpha * (reward + self.gamma * temporal_difference)
 
         return action
     
     def init_training(self):
         # Populate Q-Table for 12 epochs on both actions, with a value of -1
         for epoch in range(10):
-            for action in self.ACTION_TABLE:
-                self.Q_table[(epoch, action)] = -1
+            for accuracy in range(0, 100, 10):
+                for action in self.ACTION_TABLE:
+                    self.Q_table[(epoch, accuracy, action)] = -1
     
     def restart_training(self, model):
         # Reset model weights
@@ -129,7 +134,8 @@ class Environment():
         self.earlyBird.reset_earlyBird()
     
 
-    def inference(self, epoch):
+    def inference(self, epoch, accuracy):
         # Assuming that we have a trained q_table, select and return the ideal action at each epoch step
-        return max(self.Q_table[(epoch, action)] for action in self.ACTION_TABLE)
+        realAcc = self.mapAccuracy(accuracy)
+        return max(self.Q_table[(epoch, realAcc, action)] for action in self.ACTION_TABLE)
 
