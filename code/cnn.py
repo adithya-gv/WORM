@@ -2,9 +2,11 @@ import torch
 import torchvision
 import torch.nn as nn
 import torch.nn.functional as F
+import train
+import time
 
 from earlyBird import EarlyBird
-from agents import earlyBirdAgent, earlyBirdRLAgent
+from agents import earlyBirdAgent, earlyBirdRLAgent, fasterEarlyBirdAgent
 
 class ResNet18(nn.Module):
     def __init__(self):
@@ -90,5 +92,26 @@ optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
 # Init EarlyBird package, with threshold parameter of 0.1
 earlyBird = EarlyBird(0.5, 5, 0.1)
 
-env = earlyBirdRLAgent(model, criterion, optimizer, trainloader, testloader, earlyBird, 10, device)
-print(env.inference(0))
+start_time = time.time()
+
+fasterEarlyBirdAgent(model, criterion, optimizer, trainloader, testloader, earlyBird, 20, device)
+mask = earlyBird.pruning(model)
+model = earlyBird.apply_mask(model, mask, device)
+
+# Test Model 
+accuracy = train.test(model, testloader, device)
+
+epoch = 0
+
+while accuracy < 80:
+    # Train New Model until accuracy is 80%
+    train.train_one_epoch(model, device, trainloader, optimizer, criterion, epoch)
+
+    # Test New Model
+    accuracy = train.test(model, testloader, device) 
+    epoch += 1
+
+print(f"Training Time: {time.time() - start_time}")
+
+# env = earlyBirdRLAgent(model, criterion, optimizer, trainloader, testloader, earlyBird, 10, device)
+# print(env.inference(0))
