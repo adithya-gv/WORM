@@ -43,25 +43,6 @@ class EarlyBird():
         # print('Pre-processing Successful!')
         return mask
 
-    def apply_mask(self, model, mask, device):
-        # Duplicate the model and apply the mask
-        new_model = copy.deepcopy(model)
-        new_model = new_model.to(device)
-        mask = mask.to(device)
-
-        # iterate through each layer and apply the mask
-        index = 0
-        for m in new_model.modules():
-            if isinstance(m, nn.BatchNorm2d):
-                size = m.weight.data.numel()
-                m.weight.data.mul_(mask[index:(index+size)])
-                m.bias.data.mul_(mask[index:(index+size)])
-                m.running_mean.mul_(mask[index:(index+size)])
-                m.running_var.mul_(mask[index:(index+size)])
-                index += size
-            
-        return new_model
-
     def put(self, mask):
         if len(self.masks) < self.epoch_keep:
             self.masks.append(mask)

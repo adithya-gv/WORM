@@ -5,14 +5,42 @@ import torch.nn.functional as F
 import train
 import time
 
+import numpy as np
+
 from earlyBird import EarlyBird
 from agents import earlyBirdAgent, earlyBirdRLAgent, fasterEarlyBirdAgent
+
+class channel_selection(nn.Module):
+    """
+    Select channels from the output of BatchNorm2d layer. It should be put directly after BatchNorm2d layer.
+    The output shape of this layer is determined by the number of 1 in `self.indexes`.
+    """
+    def __init__(self, num_channels):
+        """
+        Initialize the `indexes` with all one vector with the length same as the number of channels.
+        During pruning, the places in `indexes` which correpond to the channels to be pruned will be set to 0.
+	    """
+        super(channel_selection, self).__init__()
+        self.indexes = nn.Parameter(torch.ones(num_channels))
+
+    def forward(self, input_tensor):
+        """
+        Parameter
+        ---------
+        input_tensor: (N,C,H,W). It should be the output of BatchNorm2d layer.
+		"""
+        selected_index = np.squeeze(np.argwhere(self.indexes.data.cpu().numpy()))
+        if selected_index.size == 1:
+            selected_index = np.resize(selected_index, (1,)) 
+        output = input_tensor[:, selected_index, :, :]
+        return output
 
 class ResNet18(nn.Module):
     def __init__(self):
         super(ResNet18, self).__init__()
         self.conv1 = nn.Conv2d(3, 64, 7, stride=2, padding=3)
         self.bn1 = nn.BatchNorm2d(64)
+        self.select = channel_selection(64)
         self.maxpool = nn.MaxPool2d(3, stride=2, padding=1)
         self.layer1 = self._make_layer(64, 64, 2, 1)
         self.layer2 = self._make_layer(64, 128, 2, 2)
@@ -31,6 +59,7 @@ class ResNet18(nn.Module):
     def forward(self, x):
         x = self.conv1(x)
         x = self.bn1(x)
+        x = self.select(x)
         x = F.relu(x)
         x = self.maxpool(x)
         x = self.layer1(x)
@@ -94,17 +123,20 @@ earlyBird = EarlyBird(0.5, 5, 0.1)
 
 start_time = time.time()
 
-fasterEarlyBirdAgent(model, criterion, optimizer, trainloader, testloader, earlyBird, 20, device)
+earlyBirdAgent(model, criterion, optimizer, trainloader, testloader, earlyBird, 20, device)
 mask = earlyBird.pruning(model)
-model = earlyBird.apply_mask(model, mask, device)
+model = earlyBird.final_prune(model, mask, device)
+
+criterion = nn.CrossEntropyLoss()
+optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
 
 # Test Model 
 accuracy = train.test(model, testloader, device)
 
 epoch = 0
 
-while accuracy < 80:
-    # Train New Model until accuracy is 80%
+while accuracy < 90:
+    # Train New Model until accuracy is 90%
     train.train_one_epoch(model, device, trainloader, optimizer, criterion, epoch)
 
     # Test New Model
