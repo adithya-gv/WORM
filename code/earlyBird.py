@@ -10,7 +10,7 @@ class EarlyBird():
         self.masks = []
         self.dists = [1 for i in range(1, self.epoch_keep)]
 
-    def pruning(self, model, ratio):
+    def pruning(self, model):
         total = 0
         for m in model.modules():
             if isinstance(m, nn.BatchNorm2d):
@@ -25,7 +25,7 @@ class EarlyBird():
                 index += size
 
         y, i = torch.sort(bn)
-        thre_index = int(total * ratio)
+        thre_index = int(total * self.ratio)
         thre = y[thre_index]
         # print('Pruning threshold: {}'.format(thre))
 
@@ -43,25 +43,6 @@ class EarlyBird():
         # print('Pre-processing Successful!')
         return mask
 
-    def apply_mask(self, model, mask, device):
-        # Duplicate the model and apply the mask
-        new_model = copy.deepcopy(model)
-        new_model = new_model.to(device)
-        mask = mask.to(device)
-
-        # iterate through each layer and apply the mask
-        index = 0
-        for m in new_model.modules():
-            if isinstance(m, nn.BatchNorm2d):
-                size = m.weight.data.numel()
-                m.weight.data.mul_(mask[index:(index+size)])
-                m.bias.data.mul_(mask[index:(index+size)])
-                m.running_mean.mul_(mask[index:(index+size)])
-                m.running_var.mul_(mask[index:(index+size)])
-                index += size
-            
-        return new_model
-
     def put(self, mask):
         if len(self.masks) < self.epoch_keep:
             self.masks.append(mask)
@@ -75,12 +56,12 @@ class EarlyBird():
                 mask_i = self.masks[-1]
                 mask_j = self.masks[i]
                 self.dists[i] = 1 - float(torch.sum(mask_i==mask_j)) / mask_j.size(0)
-            return
+            return True
         else:
             return False
 
     def early_bird_emerge(self, model):
-        mask = self.pruning(model, self.ratio)
+        mask = self.pruning(model)
         self.put(mask)
         flag = self.cal_dist()
         if flag == True:

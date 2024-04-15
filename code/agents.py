@@ -1,5 +1,6 @@
 import train
 import torch
+from earlyBirdGradient import EarlyBirdGradient
 
 from environment import Environment
 
@@ -21,6 +22,31 @@ def earlyBirdAgent(model, criterion, optimizer, trainloader, testloader, earlyBi
 
         # Otherwise, Train the model
         train.train_one_epoch(model, device, trainloader, optimizer, criterion, epoch)
+
+        # Test Model
+        train.test(model, testloader, device)
+
+def fasterEarlyBirdAgent(model, criterion, optimizer, trainloader, testloader, earlyBird, epochs, device, chi):
+    ebg = EarlyBirdGradient(chi=chi)
+    for epoch in range(epochs):
+        if earlyBird.early_bird_emerge(model):
+            print("Early Bird Found!")
+
+            # Save model
+            torch.save(model.state_dict(), "early_bird_model.pth")
+
+            # Test Model
+            train.test(model, testloader, device)
+
+            # Output epoch number
+            print(f"Epoch: {epoch}")
+            break
+        else:
+            mask = earlyBird.masks[-1]
+            ebg.updateMask(mask)
+
+        # Otherwise, Train the model
+        train.train_one_epoch_with_clip(model, device, trainloader, optimizer, criterion, epoch, ebg)
 
         # Test Model
         train.test(model, testloader, device)

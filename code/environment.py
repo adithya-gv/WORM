@@ -86,7 +86,7 @@ class Environment():
 
         # if acc is less than target accuracy within range, apply major penalty
         penalty = 0
-        if (acc < target_acc) - 5 or (acc < 80):
+        if acc < (target_acc - 30) or (target_acc < 80):
             penalty = max(1000 * (10 - epoch), 1000)
 
         # Compute Reward

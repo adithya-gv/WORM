@@ -13,9 +13,7 @@ import numpy as np
 from earlyBird import EarlyBird
 from agents import earlyBirdAgent, earlyBirdRLAgent, fasterEarlyBirdAgent
 
-
-
-model = torchvision.models.resnet18(weights='DEFAULT', progress=True)
+model = torchvision.models.vgg11_bn(weights='DEFAULT', progress=True)
 
 
 
@@ -37,12 +35,12 @@ criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
 
 # Init EarlyBird package, with threshold parameter of 0.1
-earlyBird = EarlyBird(0.5, 5, 0.1)
+earlyBird = EarlyBird(0.5, 5, 0.07)
 
 start_time = time.time()
 
 # earlyBirdAgent(model, criterion, optimizer, trainloader, testloader, earlyBird, 20, device)
-fasterEarlyBirdAgent(model, criterion, optimizer, trainloader, testloader, earlyBird, 20, device, 0.5)
+fasterEarlyBirdAgent(model, criterion, optimizer, trainloader, testloader, earlyBird, 20, device, 0.01)
 
 prune_rate = 0.5
 
@@ -50,6 +48,8 @@ for _, module in model.named_modules():
     if isinstance(module, nn.Conv2d):
         prune.l1_unstructured(module, name="weight", amount=prune_rate)
         prune.remove(module, name="weight")
+        prune.l1_unstructured(module, name="bias", amount=prune_rate)
+        prune.remove(module, name="bias")
     if isinstance(module, nn.Linear):
         prune.l1_unstructured(module, name="weight", amount=prune_rate)
         prune.remove(module, name="weight")
@@ -58,6 +58,8 @@ for _, module in model.named_modules():
     if isinstance(module, nn.BatchNorm2d):
         prune.l1_unstructured(module, name="weight", amount=prune_rate)
         prune.remove(module, name="weight")
+        prune.l1_unstructured(module, name="bias", amount=prune_rate)
+        prune.remove(module, name="bias")
 
 
 
