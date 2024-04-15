@@ -12,7 +12,7 @@ Details coming soon!
 8. Train and test PPO/DQL agent on Gemma
 
 ## To-Do (Gradient)
-1. ~~Test SOTA
+1. ~~Test SOTA~~
 2. ~~Develop Modified Gradient Calculation~~
 3. ~~Test on ResNet-18~~
 4. ~~Test on Other CNN Architectures~~
