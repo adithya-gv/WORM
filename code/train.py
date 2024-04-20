@@ -1,4 +1,5 @@
 import torch
+from transformers import TrainingArguments, Trainer
 
 def train_one_epoch(model, device, train, optimizer, criterion, epoch_num):
     model.train()
@@ -48,3 +49,29 @@ def test(model, test, device):
     print(f'Accuracy: {100 * correct / total}')
 
     return 100 * correct / total
+
+def train_one_epoch_bert(model, train_dataset, tokenizer, compute_metrics):
+    training_args = TrainingArguments(output_dir="test_trainer", num_train_epochs=1, save_strategy="no")
+
+    trainer = Trainer(
+        model=model,
+        args=training_args,
+        train_dataset=train_dataset,
+        tokenizer=tokenizer,
+        compute_metrics=compute_metrics,
+    )
+
+    trainer.train()
+
+def test_bert(model, eval_dataset, tokenizer, compute_metrics):
+    training_args = TrainingArguments(output_dir="test_trainer", evaluation_strategy="epoch")
+
+    trainer = Trainer(
+        model=model,
+        args=training_args,
+        tokenizer=tokenizer,
+        compute_metrics=compute_metrics,
+    )
+
+    results = trainer.predict(test_dataset=eval_dataset)
+    print(results[2]['test_accuracy'] * 100)

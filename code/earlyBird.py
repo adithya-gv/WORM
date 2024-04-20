@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import copy
+from transformers.models import bert
 
 class EarlyBird():
     def __init__(self, ratio, epoch_keep=5, threshold=0.1):
@@ -9,6 +10,7 @@ class EarlyBird():
         self.epoch_keep = epoch_keep
         self.masks = []
         self.dists = [1 for i in range(1, self.epoch_keep)]
+        self.prevMaskDistance = 1e9
 
     def pruning(self, model):
         total = 0
@@ -59,6 +61,9 @@ class EarlyBird():
             return True
         else:
             return False
+    
+    def get_mask_distance(self):
+        return sum(self.dists) / len(self.dists)
 
     def early_bird_emerge(self, model):
         mask = self.pruning(model)
@@ -85,3 +90,50 @@ class EarlyBird():
     def reset_earlyBird(self):
         self.masks = []
         self.dists = [1 for i in range(1, self.epoch_keep)]
+
+class EarlyBERT(EarlyBird):
+    def __init__(self, ratio, epoch_keep=5, threshold=0.1):
+        super().__init__(ratio, epoch_keep, threshold)
+    
+    def pruning(self, model):
+        total = 0
+        for m in model.modules():
+            if isinstance(m, bert.modeling_bert.BertSelfAttention):
+                total += m.query.weight.data.flatten().shape[0]
+                total += m.value.weight.data.flatten().shape[0]
+                total += m.key.weight.data.flatten().shape[0]
+
+        bn = torch.zeros(total)
+        index = 0
+        for m in model.modules():
+            if isinstance(m, bert.modeling_bert.BertSelfAttention):
+                size = m.query.weight.data.flatten().shape[0]
+                bn[index:(index+size)] = m.query.weight.data.flatten().abs().clone()
+                index += size
+                size = m.key.weight.data.flatten().shape[0]
+                bn[index:(index+size)] = m.key.weight.data.flatten().abs().clone()
+                index += size
+                size = m.value.weight.data.flatten().shape[0]
+                bn[index:(index+size)] = m.value.weight.data.flatten().abs().clone()
+                index += size
+
+
+        y, i = torch.sort(bn)
+        thre_index = int(total * self.ratio)
+        thre = y[thre_index]
+        # print('Pruning threshold: {}'.format(thre))
+
+        mask = torch.zeros(total)
+        index = 0
+        for k, m in enumerate(model.modules()):
+            if isinstance(m, bert.modeling_bert.BertSelfAttention):
+                size = m.weight.data.numel()
+                weight_copy = m.weight.data.abs().clone()
+                _mask = weight_copy.gt(thre.cuda()).float().cuda()
+                mask[index:(index+size)] = _mask.view(-1)
+                # print('layer index: {:d} \t total channel: {:d} \t remaining channel: {:d}'.format(k, _mask.shape[0], int(torch.sum(_mask))))
+                index += size
+
+        # print('Pre-processing Successful!')
+        return mask
+

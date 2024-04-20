@@ -4,7 +4,7 @@ import copy
 
 class EarlyBirdGradient():
 
-    def __init__(self, chi=0.2):
+    def __init__(self, chi=1):
         self.mask = None
         self.oldWeights = None
         self.chi = chi
@@ -18,11 +18,17 @@ class EarlyBirdGradient():
         if self.loss < 0.5:
             return True
         return False
+
+    def updateChi(self, dist):
+        if (dist > 1):
+            self.chi = 1
+        else:
+            self.chi = dist
     
     def clipGradients(self, model, device):
         if self.mask == None:
             return model
-        if (self.loss > 0.5):
+        if self.chi == 1:
             return model
         index = 0
         self.mask = self.mask.to(device)
