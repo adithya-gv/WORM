@@ -1,47 +1,72 @@
-from gemma_archive.gemma.config import GemmaConfig, get_config_for_2b
-from gemma_archive.gemma.model import GemmaModel, GemmaForCausalLM
-from gemma_archive.gemma.tokenizer import Tokenizer
-
-import sys
-import os 
-import contextlib
 import torch
+import torch.nn as nn
+from datasets import load_dataset
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+import numpy as np
+import evaluate
+from earlyBird import EarlyGemma
 
-VARIANT = "2b"
+import time
 
-@contextlib.contextmanager
-def _set_default_tensor_type(dtype: torch.dtype):
-    torch.set_default_dtype(dtype)
-    yield
-    torch.set_default_dtype(torch.float)
-    
-model_config = get_config_for_2b()
-model_config.tokenizer = "code/gemma_archive/tokenizer.model"
+import torch.nn.utils.prune as prune
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+import train
 
-with _set_default_tensor_type(torch.bfloat16):
-    model = GemmaForCausalLM(model_config)
-    checkpoint_path = "code/gemma_archive/gemma-2b.ckpt"
-    model.load_weights(checkpoint_path)
-    model = model.to(device).eval()
+from agents import earlyGemmaAgent, ACearlyGemmaAgent
 
-USER_CHAT_TEMPLATE = "<start_of_turn>user\n{prompt}<end_of_turn>\n"
-MODEL_CHAT_TEMPLATE = "<start_of_turn>model\n{prompt}<end_of_turn>\n"
 
-prompt = (
-    USER_CHAT_TEMPLATE.format(
-        prompt="What is a good place for travel in the US?"
-    )
-    + MODEL_CHAT_TEMPLATE.format(prompt="California.")
-    + USER_CHAT_TEMPLATE.format(prompt="What can I do in California?")
-    + "<start_of_turn>model\n"
-)
+metric = evaluate.load("accuracy")
 
-output = model.generate(
-    USER_CHAT_TEMPLATE.format(prompt=prompt),
-    device=device,
-    output_len=100,
-)
+def compute_metrics(eval_pred):
+    logits, labels = eval_pred
+    predictions = np.argmax(logits, axis=-1)
+    return metric.compute(predictions=predictions, references=labels)
 
-print(output)
+tokenizer = AutoTokenizer.from_pretrained("google/gemma-2b", token="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")
+model = AutoModelForSequenceClassification.from_pretrained("google/gemma-2b", token="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", num_labels=2, cache_dir="/home/hice1/avasudev8/scratch/").cuda()
+
+dataset = load_dataset("nyu-mll/glue", "sst2", cache_dir="/home/hice1/avasudev8/scratch/")
+
+train_dataset = dataset["train"]
+eval_dataset = dataset["validation"]
+
+# Get random 1/4 of the dataset
+first_quarter_size = len(train_dataset) // 40
+
+# Extract the first quarter of the dataset
+train_dataset = train_dataset.select(range(first_quarter_size))
+
+
+def tokenize_function(examples):
+    return tokenizer(examples["sentence"], truncation=True)
+
+train_dataset = train_dataset.map(tokenize_function, batched=True)
+eval_dataset = eval_dataset.map(tokenize_function, batched=True)
+
+prune_rate = 0.5
+
+earlyBird = EarlyGemma(prune_rate, 3, 0.01)
+
+start_time = time.time()
+
+earlyGemmaAgent(model, train_dataset, tokenizer, eval_dataset, compute_metrics, 20, earlyBird)
+# ACearlyGemmaAgent(model, train_dataset, tokenizer, eval_dataset, compute_metrics, 20, earlyBird)
+
+for _, module in model.named_modules():
+    if isinstance(module, nn.Linear):
+        prune.L1Unstructured.apply(module, name="weight", amount=prune_rate)
+
+accuracy = train.test_transformer(model, eval_dataset, tokenizer, compute_metrics)
+
+epoch = 0
+
+while epoch < 1:
+    # Train New Model until accuracy is 80%
+    print(epoch)
+    model = train.train_one_epoch_transformer(model, train_dataset, tokenizer, compute_metrics)
+
+    # Test New Model
+    accuracy = train.test_transformer(model, eval_dataset, tokenizer, compute_metrics)
+    epoch += 1
+
+print(f"Training Time: {time.time() - start_time}")

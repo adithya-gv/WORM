@@ -1,5 +1,29 @@
 import torch
-from transformers import TrainingArguments, Trainer
+from transformers import TrainingArguments, Trainer, TrainerCallback
+from earlyBirdGradient import EarlyBERTGradient
+
+class ConClipTrainer(Trainer):
+
+    def __init__(
+        self, *args, ebg: EarlyBERTGradient = None, **kwargs
+    ):
+        super().__init__(*args, **kwargs)
+        self.ebg = ebg
+
+    def training_step(self, model, inputs):
+        model.train()
+        inputs = self._prepare_inputs(inputs)
+
+        with self.compute_loss_context_manager():
+            loss = self.compute_loss(model, inputs)
+
+        self.accelerator.backward(loss)
+
+        model = self.ebg.clipGradients(model, model.device)
+
+        return loss.detach() / self.args.gradient_accumulation_steps
+
+
 
 def train_one_epoch(model, device, train, optimizer, criterion, epoch_num):
     model.train()
@@ -50,7 +74,7 @@ def test(model, test, device):
 
     return 100 * correct / total
 
-def train_one_epoch_bert(model, train_dataset, tokenizer, compute_metrics):
+def train_one_epoch_transformer(model, train_dataset, tokenizer, compute_metrics):
     training_args = TrainingArguments(output_dir="test_trainer", num_train_epochs=1, save_strategy="no")
 
     trainer = Trainer(
@@ -63,15 +87,34 @@ def train_one_epoch_bert(model, train_dataset, tokenizer, compute_metrics):
 
     trainer.train()
 
-def test_bert(model, eval_dataset, tokenizer, compute_metrics):
+    return model
+
+def train_one_epoch_transformer_clip(model, train_dataset, tokenizer, compute_metrics, ebg):
+    training_args = TrainingArguments(output_dir="test_trainer", num_train_epochs=1, save_strategy="no")
+
+    trainer = ConClipTrainer(
+        model=model,
+        args=training_args,
+        train_dataset=train_dataset,
+        tokenizer=tokenizer,
+        compute_metrics=compute_metrics,
+        ebg=ebg
+    )
+
+    trainer.train()
+
+    return model
+
+def test_transformer(model, eval_dataset, tokenizer, compute_metrics):
     training_args = TrainingArguments(output_dir="test_trainer", evaluation_strategy="epoch")
 
     trainer = Trainer(
         model=model,
         args=training_args,
         tokenizer=tokenizer,
-        compute_metrics=compute_metrics,
+        compute_metrics=compute_metrics
     )
 
-    results = trainer.predict(test_dataset=eval_dataset)
-    print(results[2]['test_accuracy'] * 100)
+    results = trainer.evaluate(eval_dataset=eval_dataset)
+    print("Accuracy: " + str(results['eval_accuracy'] * 100))
+    return results['eval_accuracy'] * 100

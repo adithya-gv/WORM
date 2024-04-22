@@ -106,36 +106,104 @@ def wormSTAR(model, criterion, optimizer, trainloader, testloader, earlyBird, ep
         # Test Model
         train.test(model, testloader, device)
 
-def earlyBirdRLAgent(model, criterion, optimizer, trainloader, testloader, earlyBird, epochs, device):
-    # Initialize environment
-    print("Agent Training Beginning!")
-    env = Environment(model, device, trainloader, optimizer, criterion, testloader, earlyBird.ratio, 0.5, earlyBird, 0.9)
-    env.init_training()
-    for n in range(5):
-        for e in range(epochs):
-            train.train_one_epoch(model, device, trainloader, optimizer, criterion, e)
-            train.test(model, testloader, device)
-            choice = env.take_action(model, e)
-            if choice == 1:
-                env.restart_training(model)
-                break
-    
-    return env
 
 def earlyBERTAgent(model, train_dataset, tokenizer, eval_dataset, compute_metrics, epochs, earlyBird):
+    accuracy = 0
     for epoch in range(epochs):
         if earlyBird.early_bird_emerge(model):
             print("Early Bird Found!")
 
             # Test Model
-            train.test_bert(model, eval_dataset, tokenizer, compute_metrics)
+            accuracy = train.test_transformer(model, eval_dataset, tokenizer, compute_metrics)
 
             # Output epoch number
             print(f"Epoch: {epoch}")
             break
 
         # Otherwise, Train the model
-        train.train_one_epoch_bert(model, train_dataset, tokenizer, compute_metrics)
+        train.train_one_epoch_transformer(model, train_dataset, tokenizer, compute_metrics)
 
         # Test Model
-        train.test_bert(model, eval_dataset, tokenizer, compute_metrics)
+        train.test_transformer(model, eval_dataset, tokenizer, compute_metrics)
+    
+    return accuracy
+
+def ACearlyBERTAgent(model, train_dataset, tokenizer, eval_dataset, compute_metrics, epochs, earlyBird):
+    ebg = EarlyBirdGradient(chi=1)
+    accuracy = 0
+    for epoch in range(epochs):
+        if earlyBird.early_bird_emerge(model) and (epoch >= earlyBird.epoch_keep):
+            print("Early Bird Found!")
+
+            # Test Model
+            accuracy = train.test_transformer(model, eval_dataset, tokenizer, compute_metrics)
+
+            # Output epoch number
+            print(f"Epoch: {epoch}")
+            break
+        else:
+            mask = earlyBird.masks[-1]
+            ebg.updateMask(mask)
+            dist = earlyBird.get_mask_distance()
+            ebg.updateChi(dist)
+            if (dist < 0.015):
+                ebg.updateChi(0.01)
+
+        # Otherwise, Train the model
+        train.train_one_epoch_bert_transformer(model, train_dataset, tokenizer, compute_metrics, ebg)
+
+        # Test Model
+        train.test_transformer(model, eval_dataset, tokenizer, compute_metrics)
+    
+    return accuracy
+
+
+def earlyGemmaAgent(model, train_dataset, tokenizer, eval_dataset, compute_metrics, epochs, earlyBird):
+    accuracy = 0
+    for epoch in range(epochs):
+        if earlyBird.early_bird_emerge(model):
+            print("Early Bird Found!")
+
+            # Test Model
+            accuracy = train.test_transformer(model, eval_dataset, tokenizer, compute_metrics)
+
+            # Output epoch number
+            print(f"Epoch: {epoch}")
+            break
+
+        # Otherwise, Train the model
+        train.train_one_epoch_transformer(model, train_dataset, tokenizer, compute_metrics)
+
+        # Test Model
+        train.test_transformer(model, eval_dataset, tokenizer, compute_metrics)
+    
+    return accuracy
+
+def ACearlyGemmaAgent(model, train_dataset, tokenizer, eval_dataset, compute_metrics, epochs, earlyBird):
+    ebg = EarlyBirdGradient(chi=1)
+    accuracy = 0
+    for epoch in range(epochs):
+        if earlyBird.early_bird_emerge(model) and (epoch >= earlyBird.epoch_keep):
+            print("Early Bird Found!")
+
+            # Test Model
+            accuracy = train.test_transformer(model, eval_dataset, tokenizer, compute_metrics)
+
+            # Output epoch number
+            print(f"Epoch: {epoch}")
+            break
+        else:
+            mask = earlyBird.masks[-1]
+            ebg.updateMask(mask)
+            dist = earlyBird.get_mask_distance()
+            ebg.updateChi(dist)
+            if (dist < 0.015):
+                ebg.updateChi(0.01)
+
+        # Otherwise, Train the model
+        train.train_one_epoch_transformer_clip(model, train_dataset, tokenizer, compute_metrics, ebg)
+
+        # Test Model
+        train.test_transformer(model, eval_dataset, tokenizer, compute_metrics)
+    
+    return accuracy
