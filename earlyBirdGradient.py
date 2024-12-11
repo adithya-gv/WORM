@@ -38,7 +38,7 @@ class EarlyBirdGradient():
         return model
 
 
-class EarlyBERTGradient(EarlyBirdGradient):
+class EarlyTransformerGradient(EarlyBirdGradient):
 
     def __init__(self, chi=1):
         super().__init__(chi)

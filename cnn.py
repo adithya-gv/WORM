@@ -6,10 +6,12 @@ import train
 import time
 import random
 
+import sys
+
 import torch.nn.utils.prune as prune
 
 from earlyBird import EarlyBird
-from agents import earlyBirdAgent, fasterEarlyBirdAgent, wormSTAR, aggressiveClipAgent
+from agents import earlyBirdAgent, gradClipEBAgent, greedyClipEBAgent, wormEBAgent
 
 def standard():
     model = torchvision.models.resnet18(weights='DEFAULT', progress=True)
@@ -80,7 +82,7 @@ def standard():
     # env = earlyBirdRLAgent(model, criterion, optimizer, trainloader, testloader, earlyBird, 10, device)
     # print(env.inference(0))
 
-def fast():
+def gradClip():
     model = torchvision.models.resnet18(weights='DEFAULT', progress=True)
 
 
@@ -107,7 +109,7 @@ def fast():
 
     start_time = time.time()
 
-    fasterEarlyBirdAgent(model, criterion, optimizer, trainloader, testloader, earlyBird, 20, device, 0.1)
+    gradClipEBAgent(model, criterion, optimizer, trainloader, testloader, earlyBird, 20, device, 0.1)
 
     prune_rate = 0.5
 
@@ -149,7 +151,7 @@ def fast():
     # env = earlyBirdRLAgent(model, criterion, optimizer, trainloader, testloader, earlyBird, 10, device)
     # print(env.inference(0))
 
-def star():
+def greedyClip():
     model = torchvision.models.resnet18(weights='DEFAULT', progress=True)
 
 
@@ -176,7 +178,7 @@ def star():
 
     start_time = time.time()
 
-    wormSTAR(model, criterion, optimizer, trainloader, testloader, earlyBird, 20, device)
+    greedyClipEBAgent(model, criterion, optimizer, trainloader, testloader, earlyBird, 20, device)
 
     prune_rate = 0.5
 
@@ -218,7 +220,7 @@ def star():
     # env = earlyBirdRLAgent(model, criterion, optimizer, trainloader, testloader, earlyBird, 10, device)
     # print(env.inference(0))
 
-def aggClip():
+def worm():
     model = torchvision.models.resnet18(weights='DEFAULT', progress=True)
 
 
@@ -245,7 +247,7 @@ def aggClip():
 
     start_time = time.time()
 
-    aggressiveClipAgent(model, criterion, optimizer, trainloader, testloader, earlyBird, 20, device)
+    wormEBAgent(model, criterion, optimizer, trainloader, testloader, earlyBird, 20, device)
 
     prune_rate = 0.5
 
@@ -287,7 +289,17 @@ def aggClip():
     # env = earlyBirdRLAgent(model, criterion, optimizer, trainloader, testloader, earlyBird, 10, device)
     # print(env.inference(0))
 
-for i in range(2):
+if __name__ == "__main__":
+    # Init random seed for torch
     torch.manual_seed(random.randint(0, 1e5))
-    standard()
-    aggClip()
+    if sys.argv[1] == "standard":
+        standard()
+    elif sys.argv[1] == "gradclip":
+        gradClip()
+    elif sys.argv[1] == "greedy":
+        greedyClip()
+    elif sys.argv[1] == "worm":
+        worm()
+    else:
+        print("Invalid Argument")
+        exit(1)

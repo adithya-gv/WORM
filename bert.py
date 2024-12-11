@@ -1,4 +1,3 @@
-import torch
 import torch.nn as nn
 from datasets import load_dataset
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
@@ -12,7 +11,9 @@ import torch.nn.utils.prune as prune
 
 import train
 
-from agents import earlyBERTAgent, ACearlyBERTAgent
+from agents import earlyBERTAgent, wormBERTAgent
+
+import sys
 
 
 metric = evaluate.load("accuracy")
@@ -48,29 +49,66 @@ eval_dataset = eval_dataset.map(tokenize_function, batched=True)
 
 prune_rate = 0.5
 
-earlyBird = EarlyBERT(prune_rate, 3, 0.01)
+def earlyBERT():
+    earlyBird = EarlyBERT(prune_rate, 3, 0.01)
 
-start_time = time.time()
+    start_time = time.time()
 
-earlyBERTAgent(model, train_dataset, tokenizer, eval_dataset, compute_metrics, 20, earlyBird)
-# ACearlyBERTAgent(model, train_dataset, tokenizer, eval_dataset, compute_metrics, 20, earlyBird)
+    earlyBERTAgent(model, train_dataset, tokenizer, eval_dataset, compute_metrics, 20, earlyBird)
+    # ACearlyBERTAgent(model, train_dataset, tokenizer, eval_dataset, compute_metrics, 20, earlyBird)
 
-for _, module in model.named_modules():
-    if isinstance(module, nn.Linear):
-        prune.L1Unstructured.apply(module, name="weight", amount=prune_rate)
-        prune.L1Unstructured.apply(module, name="bias", amount=prune_rate)
+    for _, module in model.named_modules():
+        if isinstance(module, nn.Linear):
+            prune.L1Unstructured.apply(module, name="weight", amount=prune_rate)
+            prune.L1Unstructured.apply(module, name="bias", amount=prune_rate)
 
-accuracy = train.test_bert(model, eval_dataset, tokenizer, compute_metrics)
-
-epoch = 0
-
-while epoch < 1:
-    # Train New Model until accuracy is 80%
-    print(epoch)
-    model = train.train_one_epoch_bert(model, train_dataset, tokenizer, compute_metrics)
-
-    # Test New Model
     accuracy = train.test_bert(model, eval_dataset, tokenizer, compute_metrics)
-    epoch += 1
 
-print(f"Training Time: {time.time() - start_time}")
+    epoch = 0
+
+    while epoch < 1:
+        # Train New Model until accuracy is 80%
+        print(epoch)
+        model = train.train_one_epoch_bert(model, train_dataset, tokenizer, compute_metrics)
+
+        # Test New Model
+        accuracy = train.test_bert(model, eval_dataset, tokenizer, compute_metrics)
+        epoch += 1
+
+    print(f"Training Time: {time.time() - start_time}")
+
+def wormBERT():
+    earlyBird = EarlyBERT(prune_rate, 3, 0.01)
+
+    start_time = time.time()
+
+    wormBERTAgent(model, train_dataset, tokenizer, eval_dataset, compute_metrics, 20, earlyBird)
+
+    for _, module in model.named_modules():
+        if isinstance(module, nn.Linear):
+            prune.L1Unstructured.apply(module, name="weight", amount=prune_rate)
+            prune.L1Unstructured.apply(module, name="bias", amount=prune_rate)
+
+    accuracy = train.test_bert(model, eval_dataset, tokenizer, compute_metrics)
+
+    epoch = 0
+
+    while epoch < 1:
+        # Train New Model until accuracy is 80%
+        print(epoch)
+        model = train.train_one_epoch_bert(model, train_dataset, tokenizer, compute_metrics)
+
+        # Test New Model
+        accuracy = train.test_bert(model, eval_dataset, tokenizer, compute_metrics)
+        epoch += 1
+
+    print(f"Training Time: {time.time() - start_time}")
+
+if __name__ == "__main__":
+    if sys.argv[1] == "standard":
+        earlyBERT()
+    elif sys.argv[1] == "worm":
+        wormBERT()
+    else:
+        print("Invalid Argument")
+        exit(1)

@@ -11,8 +11,9 @@ import time
 import torch.nn.utils.prune as prune
 
 import train
+import sys
 
-from agents import earlyGemmaAgent, ACearlyGemmaAgent
+from agents import earlyGemmaAgent, wormGemmaAgent
 
 
 metric = evaluate.load("accuracy")
@@ -45,28 +46,64 @@ eval_dataset = eval_dataset.map(tokenize_function, batched=True)
 
 prune_rate = 0.5
 
-earlyBird = EarlyGemma(prune_rate, 3, 0.01)
+def earlyGemma():
+    earlyBird = EarlyGemma(prune_rate, 3, 0.01)
 
-start_time = time.time()
+    start_time = time.time()
 
-earlyGemmaAgent(model, train_dataset, tokenizer, eval_dataset, compute_metrics, 20, earlyBird)
-# ACearlyGemmaAgent(model, train_dataset, tokenizer, eval_dataset, compute_metrics, 20, earlyBird)
+    earlyGemmaAgent(model, train_dataset, tokenizer, eval_dataset, compute_metrics, 20, earlyBird)
 
-for _, module in model.named_modules():
-    if isinstance(module, nn.Linear):
-        prune.L1Unstructured.apply(module, name="weight", amount=prune_rate)
+    for _, module in model.named_modules():
+        if isinstance(module, nn.Linear):
+            prune.L1Unstructured.apply(module, name="weight", amount=prune_rate)
 
-accuracy = train.test_transformer(model, eval_dataset, tokenizer, compute_metrics)
-
-epoch = 0
-
-while epoch < 1:
-    # Train New Model until accuracy is 80%
-    print(epoch)
-    model = train.train_one_epoch_transformer(model, train_dataset, tokenizer, compute_metrics)
-
-    # Test New Model
     accuracy = train.test_transformer(model, eval_dataset, tokenizer, compute_metrics)
-    epoch += 1
 
-print(f"Training Time: {time.time() - start_time}")
+    epoch = 0
+
+    while epoch < 1:
+        # Train New Model until accuracy is 80%
+        print(epoch)
+        model = train.train_one_epoch_transformer(model, train_dataset, tokenizer, compute_metrics)
+
+        # Test New Model
+        accuracy = train.test_transformer(model, eval_dataset, tokenizer, compute_metrics)
+        epoch += 1
+
+    print(f"Training Time: {time.time() - start_time}")
+
+def wormGemma():
+
+    earlyBird = EarlyGemma(prune_rate, 3, 0.01)
+
+    start_time = time.time()
+
+    wormGemmaAgent(model, train_dataset, tokenizer, eval_dataset, compute_metrics, 20, earlyBird)
+
+    for _, module in model.named_modules():
+        if isinstance(module, nn.Linear):
+            prune.L1Unstructured.apply(module, name="weight", amount=prune_rate)
+
+    accuracy = train.test_transformer(model, eval_dataset, tokenizer, compute_metrics)
+
+    epoch = 0
+
+    while epoch < 1:
+        # Train New Model until accuracy is 80%
+        print(epoch)
+        model = train.train_one_epoch_transformer(model, train_dataset, tokenizer, compute_metrics)
+
+        # Test New Model
+        accuracy = train.test_transformer(model, eval_dataset, tokenizer, compute_metrics)
+        epoch += 1
+
+    print(f"Training Time: {time.time() - start_time}")
+
+if __name__ == "__main__":
+    if sys.argv[1] == "standard":
+        earlyGemma()
+    elif sys.argv[1] == "worm":
+        wormGemma()
+    else:
+        print("Invalid Argument")
+        exit(1)

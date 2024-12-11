@@ -1,6 +1,6 @@
 import train
 import torch
-from earlyBirdGradient import EarlyBirdGradient
+from earlyBirdGradient import EarlyBirdGradient, EarlyTransformerGradient
 
 # Build the early-bird agent as described in the paper.
 def earlyBirdAgent(model, criterion, optimizer, trainloader, testloader, earlyBird, epochs, device):
@@ -24,7 +24,7 @@ def earlyBirdAgent(model, criterion, optimizer, trainloader, testloader, earlyBi
         # Test Model
         train.test(model, testloader, device)
 
-def fasterEarlyBirdAgent(model, criterion, optimizer, trainloader, testloader, earlyBird, epochs, device, chi):
+def gradClipEBAgent(model, criterion, optimizer, trainloader, testloader, earlyBird, epochs, device, chi):
     ebg = EarlyBirdGradient(chi=chi)
     for epoch in range(epochs):
         if earlyBird.early_bird_emerge(model):
@@ -49,7 +49,34 @@ def fasterEarlyBirdAgent(model, criterion, optimizer, trainloader, testloader, e
         # Test Model
         train.test(model, testloader, device)
 
-def aggressiveClipAgent(model, criterion, optimizer, trainloader, testloader, earlyBird, epochs, device):
+def greedyClipEBAgent(model, criterion, optimizer, trainloader, testloader, earlyBird, epochs, device):
+    ebg = EarlyBirdGradient(chi=1)
+    for epoch in range(epochs):
+        if earlyBird.early_bird_emerge(model):
+            print("Early Bird Found!")
+
+            # Save model
+            torch.save(model.state_dict(), "early_bird_model.pth")
+
+            # Test Model
+            train.test(model, testloader, device)
+
+            # Output epoch number
+            print(f"Epoch: {epoch}")
+            break
+        else:
+            mask = earlyBird.masks[-1]
+            ebg.updateMask(mask)
+            dist = earlyBird.get_mask_distance()
+            ebg.updateChi(dist)
+
+        # Otherwise, Train the model
+        train.train_one_epoch_with_clip(model, device, trainloader, optimizer, criterion, epoch, ebg)
+
+        # Test Model
+        train.test(model, testloader, device)
+
+def wormEBAgent(model, criterion, optimizer, trainloader, testloader, earlyBird, epochs, device):
     ebg = EarlyBirdGradient(chi=1)
     for epoch in range(epochs):
         if earlyBird.early_bird_emerge(model):
@@ -70,33 +97,6 @@ def aggressiveClipAgent(model, criterion, optimizer, trainloader, testloader, ea
             dist = earlyBird.get_mask_distance()
             if (dist < 0.15):
                 ebg.updateChi(0.003)
-
-        # Otherwise, Train the model
-        train.train_one_epoch_with_clip(model, device, trainloader, optimizer, criterion, epoch, ebg)
-
-        # Test Model
-        train.test(model, testloader, device)
-
-def wormSTAR(model, criterion, optimizer, trainloader, testloader, earlyBird, epochs, device):
-    ebg = EarlyBirdGradient(chi=1)
-    for epoch in range(epochs):
-        if earlyBird.early_bird_emerge(model):
-            print("Early Bird Found!")
-
-            # Save model
-            torch.save(model.state_dict(), "early_bird_model.pth")
-
-            # Test Model
-            train.test(model, testloader, device)
-
-            # Output epoch number
-            print(f"Epoch: {epoch}")
-            break
-        else:
-            mask = earlyBird.masks[-1]
-            ebg.updateMask(mask)
-            dist = earlyBird.get_mask_distance()
-            ebg.updateChi(dist)
 
         # Otherwise, Train the model
         train.train_one_epoch_with_clip(model, device, trainloader, optimizer, criterion, epoch, ebg)
@@ -126,8 +126,8 @@ def earlyBERTAgent(model, train_dataset, tokenizer, eval_dataset, compute_metric
     
     return accuracy
 
-def ACearlyBERTAgent(model, train_dataset, tokenizer, eval_dataset, compute_metrics, epochs, earlyBird):
-    ebg = EarlyBirdGradient(chi=1)
+def wormBERTAgent(model, train_dataset, tokenizer, eval_dataset, compute_metrics, epochs, earlyBird):
+    ebg = EarlyTransformerGradient(chi=1)
     accuracy = 0
     for epoch in range(epochs):
         if earlyBird.early_bird_emerge(model) and (epoch >= earlyBird.epoch_keep):
@@ -177,8 +177,8 @@ def earlyGemmaAgent(model, train_dataset, tokenizer, eval_dataset, compute_metri
     
     return accuracy
 
-def ACearlyGemmaAgent(model, train_dataset, tokenizer, eval_dataset, compute_metrics, epochs, earlyBird):
-    ebg = EarlyBirdGradient(chi=1)
+def wormGemmaAgent(model, train_dataset, tokenizer, eval_dataset, compute_metrics, epochs, earlyBird):
+    ebg = EarlyTransformerGradient(chi=1)
     accuracy = 0
     for epoch in range(epochs):
         if earlyBird.early_bird_emerge(model) and (epoch >= earlyBird.epoch_keep):

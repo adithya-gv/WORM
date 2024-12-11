@@ -90,52 +90,6 @@ class EarlyBird():
         self.masks = []
         self.dists = [1 for i in range(1, self.epoch_keep)]
 
-class EarlyGemma(EarlyBird):
-    def __init__(self, ratio, epoch_keep=5, threshold=0.1):
-        super().__init__(ratio, epoch_keep, threshold)
-    
-    def pruning(self, model):
-        total = 0
-        for m in model.modules():
-            if isinstance(m, gemma.modeling_gemma.GemmaSdpaAttention):
-                total += m.q_proj.weight.data.flatten().shape[0]
-                total += m.k_proj.weight.data.flatten().shape[0]
-
-        bn = torch.zeros(total)
-        index = 0
-        for m in model.modules():
-            if isinstance(m, gemma.modeling_gemma.GemmaSdpaAttention):
-                size = m.q_proj.weight.data.flatten().shape[0]
-                bn[index:(index+size)] = m.q_proj.weight.data.flatten().abs().clone()
-                index += size
-                size = m.k_proj.weight.data.flatten().shape[0]
-                bn[index:(index+size)] = m.k_proj.weight.data.flatten().abs().clone()
-                index += size
-
-
-        y, i = torch.sort(bn)
-        thre_index = int(total * self.ratio)
-        thre = y[thre_index]
-        # print('Pruning threshold: {}'.format(thre))
-
-        mask = torch.zeros(total)
-        index = 0
-        for k, m in enumerate(model.modules()):
-            if isinstance(m, gemma.modeling_gemma.GemmaSdpaAttention):
-                size = m.q_proj.weight.data.flatten().numel()
-                weight_copy = m.q_proj.weight.data.flatten().abs().clone()
-                _mask = weight_copy.gt(thre.cuda()).float().cuda()
-                mask[index:(index+size)] = _mask.view(-1)
-                size = m.k_proj.weight.data.flatten().numel()
-                weight_copy = m.k_proj.weight.data.flatten().abs().clone()
-                _mask = weight_copy.gt(thre.cuda()).float().cuda()
-                mask[index:(index+size)] = _mask.view(-1)
-                # print('layer index: {:d} \t total channel: {:d} \t remaining channel: {:d}'.format(k, _mask.shape[0], int(torch.sum(_mask))))
-                index += size
-
-        # print('Pre-processing Successful!')
-        return mask
-
 class EarlyBERT(EarlyBird):
     def __init__(self, ratio, epoch_keep=5, threshold=0.1):
         super().__init__(ratio, epoch_keep, threshold)
@@ -182,3 +136,48 @@ class EarlyBERT(EarlyBird):
         # print('Pre-processing Successful!')
         return mask
 
+class EarlyGemma(EarlyBird):
+    def __init__(self, ratio, epoch_keep=5, threshold=0.1):
+        super().__init__(ratio, epoch_keep, threshold)
+    
+    def pruning(self, model):
+        total = 0
+        for m in model.modules():
+            if isinstance(m, gemma.modeling_gemma.GemmaSdpaAttention):
+                total += m.q_proj.weight.data.flatten().shape[0]
+                total += m.k_proj.weight.data.flatten().shape[0]
+
+        bn = torch.zeros(total)
+        index = 0
+        for m in model.modules():
+            if isinstance(m, gemma.modeling_gemma.GemmaSdpaAttention):
+                size = m.q_proj.weight.data.flatten().shape[0]
+                bn[index:(index+size)] = m.q_proj.weight.data.flatten().abs().clone()
+                index += size
+                size = m.k_proj.weight.data.flatten().shape[0]
+                bn[index:(index+size)] = m.k_proj.weight.data.flatten().abs().clone()
+                index += size
+
+
+        y, i = torch.sort(bn)
+        thre_index = int(total * self.ratio)
+        thre = y[thre_index]
+        # print('Pruning threshold: {}'.format(thre))
+
+        mask = torch.zeros(total)
+        index = 0
+        for k, m in enumerate(model.modules()):
+            if isinstance(m, gemma.modeling_gemma.GemmaSdpaAttention):
+                size = m.q_proj.weight.data.flatten().numel()
+                weight_copy = m.q_proj.weight.data.flatten().abs().clone()
+                _mask = weight_copy.gt(thre.cuda()).float().cuda()
+                mask[index:(index+size)] = _mask.view(-1)
+                size = m.k_proj.weight.data.flatten().numel()
+                weight_copy = m.k_proj.weight.data.flatten().abs().clone()
+                _mask = weight_copy.gt(thre.cuda()).float().cuda()
+                mask[index:(index+size)] = _mask.view(-1)
+                # print('layer index: {:d} \t total channel: {:d} \t remaining channel: {:d}'.format(k, _mask.shape[0], int(torch.sum(_mask))))
+                index += size
+
+        # print('Pre-processing Successful!')
+        return mask
