@@ -9,7 +9,7 @@ Use the requirements.txt file to install the necessary libraries.
 ## Reproducing Results
 
 ### CNN Experiments
-Run the cnn.py file to reproduce results for the ResNet-18 experiments.
+Run the cnn.py file to reproduce results for the ResNet-18 experiments.\\
 Run the vgg.py file to reproduce results for the VGG-11 experiments.
 
 - To run naive EarlyBird, type in "standard" as the command line argument
@@ -18,7 +18,7 @@ Run the vgg.py file to reproduce results for the VGG-11 experiments.
 - To run WORM, type in "worm" as the command line argument
 
 ### Transformer Experiments
-Run the bert.py file to reproduce results for the BERT experiments.
+Run the bert.py file to reproduce results for the BERT experiments.\\
 Run the gemma-2b.py file to reproduce results for the Gemma-2B experiments.
 
 - To run naive EarlyBird, type in "standard" as the command line argument
