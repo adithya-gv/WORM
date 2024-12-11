@@ -4,15 +4,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 import train
 import time
-import math
 import random
 
 import torch.nn.utils.prune as prune
 
-import numpy as np
-
 from earlyBird import EarlyBird
-from agents import earlyBirdAgent, earlyBirdRLAgent, fasterEarlyBirdAgent, wormSTAR, aggressiveClipAgent
+from agents import earlyBirdAgent, fasterEarlyBirdAgent, wormSTAR, aggressiveClipAgent
 
 def standard():
     model = torchvision.models.resnet18(weights='DEFAULT', progress=True)

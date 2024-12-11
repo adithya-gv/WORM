@@ -1,25 +1,18 @@
-# WORM
-Details coming soon!
+# The EarlyBird Gets the WORM: Heuristically Accelerating Early Bird Convergence
+This is the codebase for the paper "The EarlyBird Gets the WORM: Heuristically Accelerating EarlyBird Convergence", accepted to the Efficient Natural Language and Speech Processing Workshop at NeurIPS 2024.
 
-## To-Do (RL)
-1. ~~Test SOTA~~
-2. ~~Complete RL environment~~
-3. Train and test simple Q-Learning agent on ResNet-18
-4. Adapt Early Bird to BERT
-5. Train and test simple Q-Learning agent on BERT
-6. Train and test PPO/DQL agent on ResNet-18 and BERT
-7. Adapt Early Bird to Gemma
-8. Train and test PPO/DQL agent on Gemma
+The conference can be found [here](https://neurips2024-enlsp.github.io/), and a link to the paper can be found [here](https://arxiv.org/abs/2406.11872).
 
-## To-Do (Gradient)
-1. ~~Test SOTA~~
-2. ~~Develop Modified Gradient Calculation~~
-3. ~~Test on ResNet-18~~
-4. ~~Test on Other CNN Architectures~~
-5. Adapt Early Bird to BERT
-6. Test on BERT
-7. Adapt Early Bird to Gemma
-8. Test on Gemma
+## Prerequisite Libraries
+Use the requirements.txt file to install the necessary libraries.
+
+## Reproducing Results
+Run the cnn.py file to reproduce results for the ResNet-18 experiments.
+Run the vgg.py file to reproduce results for the VGG-11 experiments.
+Run the bert.py file to reproduce results for the BERT experiments.
+Run the gemma-2b.py file to reproduce results for the Gemma-2B experiments.
+
+No file requires command line arguments.
 
 ## Citations
 https://github.com/GATECH-EIC/Early-Bird-Tickets

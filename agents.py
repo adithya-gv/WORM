@@ -2,8 +2,6 @@ import train
 import torch
 from earlyBirdGradient import EarlyBirdGradient
 
-from environment import Environment
-
 # Build the early-bird agent as described in the paper.
 def earlyBirdAgent(model, criterion, optimizer, trainloader, testloader, earlyBird, epochs, device):
     for epoch in range(epochs):

@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import copy
 from transformers.models import bert, gemma
 
 class EarlyBird():
