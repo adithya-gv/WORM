@@ -1,7 +1,7 @@
 # The EarlyBird Gets the WORM: Heuristically Accelerating Early Bird Convergence
 This is the codebase for the paper "The EarlyBird Gets the WORM: Heuristically Accelerating EarlyBird Convergence", accepted to the Efficient Natural Language and Speech Processing Workshop at NeurIPS 2024.
 
-The conference can be found [here](https://neurips2024-enlsp.github.io/), and a link to the paper can be found [here](https://arxiv.org/abs/2406.11872).
+The workshop can be found [here](https://neurips2024-enlsp.github.io/), and a link to the paper can be found [here](https://arxiv.org/abs/2406.11872).
 
 ## Prerequisite Libraries
 Use the requirements.txt file to install the necessary libraries.
