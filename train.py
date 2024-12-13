@@ -1,11 +1,11 @@
 import torch
 from transformers import TrainingArguments, Trainer, TrainerCallback
-from earlyBirdGradient import EarlyBERTGradient
+from earlyBird import EarlyBirdGradient
 
-class ConClipTrainer(Trainer):
+class WormTransformerTrainer(Trainer):
 
     def __init__(
-        self, *args, ebg: EarlyBERTGradient = None, **kwargs
+        self, *args, ebg: EarlyBirdGradient = None, **kwargs
     ):
         super().__init__(*args, **kwargs)
         self.ebg = ebg
@@ -13,17 +13,17 @@ class ConClipTrainer(Trainer):
     def training_step(self, model, inputs):
         model.train()
         inputs = self._prepare_inputs(inputs)
+        
+        mask = self.ebg.getMask()
+        chi = self.ebg.getChi()
 
         with self.compute_loss_context_manager():
             loss = self.compute_loss(model, inputs)
 
         self.accelerator.backward(loss)
 
-        model = self.ebg.clipGradients(model, model.device)
-
         return loss.detach() / self.args.gradient_accumulation_steps
-
-
+        
 
 def train_one_epoch(model, device, train, optimizer, criterion, epoch_num):
     model.train()
@@ -46,14 +46,15 @@ def train_one_epoch_with_clip(model, device, train, optimizer, criterion, epoch_
     running_loss = 0.0
     for i, (inputs, outputs) in enumerate(train):
         inputs, outputs = inputs.to(device), outputs.to(device)
+        chi = ebg.getChi()
+        mask = ebg.getMask()
         optimizer.zero_grad()
         predictions = model(inputs)
         loss = criterion(predictions, outputs)
         loss.backward()
-        model = ebg.clipGradients(model, device)
         optimizer.step()
         running_loss += loss.item()
-        result = ebg.updateLoss(running_loss / (i + 1))
+        ebg.updateLoss(running_loss / (i + 1))
         if i % 1000 == 0:
             print(f'[{epoch_num + 1}, {i + 1}] loss: {running_loss / (i + 1)}')
     
@@ -92,7 +93,7 @@ def train_one_epoch_transformer(model, train_dataset, tokenizer, compute_metrics
 def train_one_epoch_transformer_clip(model, train_dataset, tokenizer, compute_metrics, ebg):
     training_args = TrainingArguments(output_dir="test_trainer", num_train_epochs=1, save_strategy="no")
 
-    trainer = ConClipTrainer(
+    trainer = WormTransformerTrainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset,

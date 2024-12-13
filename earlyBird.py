@@ -181,3 +181,30 @@ class EarlyGemma(EarlyBird):
 
         # print('Pre-processing Successful!')
         return mask
+
+class EarlyBirdGradient():
+
+    def __init__(self, chi=1):
+        self.mask = None
+        self.oldWeights = None
+        self.chi = chi
+        self.loss = 1e9
+    
+    def updateMask(self, mask):
+        self.mask = mask
+
+    def updateChi(self, dist):
+        if (dist > 1):
+            self.chi = 1
+        else:
+            self.chi = dist
+    
+    def getMask(self):
+        if self.mask == None:
+            return None
+        return self.mask
+
+    def getChi(self):
+        return min(self.chi, 1)
+
+                

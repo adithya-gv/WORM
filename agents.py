@@ -1,9 +1,21 @@
 import train
 import torch
-from earlyBirdGradient import EarlyBirdGradient, EarlyTransformerGradient
+import torch.nn as nn
+from earlyBird import EarlyBirdGradient
+from transformers.models import bert, gemma
+
+def worm_hook(ebg):
+    def gradient_hook(grad):
+        mask = ebg.getMask()
+        chi = ebg.getChi()
+        if mask is None:
+            return grad
+        return grad * (mask + chi * (1 - mask))
+    return gradient_hook
 
 # Build the early-bird agent as described in the paper.
 def earlyBirdAgent(model, criterion, optimizer, trainloader, testloader, earlyBird, epochs, device):
+
     for epoch in range(epochs):
         if earlyBird.early_bird_emerge(model):
             print("Early Bird Found!")
@@ -26,6 +38,11 @@ def earlyBirdAgent(model, criterion, optimizer, trainloader, testloader, earlyBi
 
 def gradClipEBAgent(model, criterion, optimizer, trainloader, testloader, earlyBird, epochs, device, chi):
     ebg = EarlyBirdGradient(chi=chi)
+    for _, module in model.named_modules():
+        if isinstance(module, nn.BatchNorm2d):
+            for _, param in module.named_parameters():
+                if param.requires_grad:
+                    param.register_hook(worm_hook(ebg))
     for epoch in range(epochs):
         if earlyBird.early_bird_emerge(model):
             print("Early Bird Found!")
@@ -51,6 +68,11 @@ def gradClipEBAgent(model, criterion, optimizer, trainloader, testloader, earlyB
 
 def greedyClipEBAgent(model, criterion, optimizer, trainloader, testloader, earlyBird, epochs, device):
     ebg = EarlyBirdGradient(chi=1)
+    for _, module in model.named_modules():
+        if isinstance(module, nn.BatchNorm2d):
+            for _, param in module.named_parameters():
+                if param.requires_grad:
+                    param.register_hook(worm_hook(ebg))
     for epoch in range(epochs):
         if earlyBird.early_bird_emerge(model):
             print("Early Bird Found!")
@@ -78,6 +100,11 @@ def greedyClipEBAgent(model, criterion, optimizer, trainloader, testloader, earl
 
 def wormEBAgent(model, criterion, optimizer, trainloader, testloader, earlyBird, epochs, device):
     ebg = EarlyBirdGradient(chi=1)
+    for _, module in model.named_modules():
+        if isinstance(module, nn.BatchNorm2d):
+            for _, param in module.named_parameters():
+                if param.requires_grad:
+                    param.register_hook(worm_hook(ebg))
     for epoch in range(epochs):
         if earlyBird.early_bird_emerge(model):
             print("Early Bird Found!")
@@ -127,7 +154,12 @@ def earlyBERTAgent(model, train_dataset, tokenizer, eval_dataset, compute_metric
     return accuracy
 
 def wormBERTAgent(model, train_dataset, tokenizer, eval_dataset, compute_metrics, epochs, earlyBird):
-    ebg = EarlyTransformerGradient(chi=1)
+    ebg = EarlyBirdGradient(chi=1)
+    for _, module in model.named_modules():
+        if isinstance(module, bert.modeling_bert.BertSelfAttention):
+            for _, param in module.named_parameters():
+                if param.requires_grad:
+                    param.register_hook(worm_hook(ebg))
     accuracy = 0
     for epoch in range(epochs):
         if earlyBird.early_bird_emerge(model) and (epoch >= earlyBird.epoch_keep):
@@ -178,7 +210,12 @@ def earlyGemmaAgent(model, train_dataset, tokenizer, eval_dataset, compute_metri
     return accuracy
 
 def wormGemmaAgent(model, train_dataset, tokenizer, eval_dataset, compute_metrics, epochs, earlyBird):
-    ebg = EarlyTransformerGradient(chi=1)
+    ebg = EarlyBirdGradient(chi=1)
+    for _, module in model.named_modules():
+        if isinstance(module, gemma.modeling_gemma.GemmaSdpaAttention):
+            for _, param in module.named_parameters():
+                if param.requires_grad:
+                    param.register_hook(worm_hook(ebg))
     accuracy = 0
     for epoch in range(epochs):
         if earlyBird.early_bird_emerge(model) and (epoch >= earlyBird.epoch_keep):
@@ -205,3 +242,4 @@ def wormGemmaAgent(model, train_dataset, tokenizer, eval_dataset, compute_metric
         train.test_transformer(model, eval_dataset, tokenizer, compute_metrics)
     
     return accuracy
+    
